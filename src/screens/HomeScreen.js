@@ -1,17 +1,19 @@
 import React, {useEffect, useState} from 'react';
-import {View, Button, Text, FlatList, StyleSheet, Alert, TouchableOpacity} from 'react-native';
+import {View, Button, FlatList, StyleSheet, Alert} from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
-import {copyFileToDocuments, deleteFile, listPdfFilesInDocumentsDirectory} from "../utils/FileManagerHelper";
+import {copyFileToDocuments, deleteFile, getListOfPdfFiles} from "../utils/FileManagerHelper";
+import FooterButton from "../components/buttons/FooterButton";
+import {createPdfFile} from "../utils/PdfEditorHelper";
+import PdfListItem from "../components/listItems/PdfListItem";
 
 const HomeScreen = ({navigation}) => {
   const [pdfFiles, setPdfFiles] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    updateFilesList().then(() => 'initial state');
+    updateFilesList().catch(e => console.log('Error while updating files list: ' + e))
   }, []);
 
-  // Right navigation button
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
@@ -24,7 +26,7 @@ const HomeScreen = ({navigation}) => {
   }, [navigation, isEditing]);
 
   const updateFilesList = async () => {
-    const files = await listPdfFilesInDocumentsDirectory();
+    const files = await getListOfPdfFiles();
     setPdfFiles(files);
   }
 
@@ -37,9 +39,7 @@ const HomeScreen = ({navigation}) => {
         .then()
         .catch(e => console.log('File not saved, reason: ' + e));
     } catch (err) {
-      if (DocumentPicker.isCancel(err)) {
-        console.log('User cancelled the picker');
-      } else {
+      if (!DocumentPicker.isCancel(err)) {
         throw err;
       }
     }
@@ -47,7 +47,7 @@ const HomeScreen = ({navigation}) => {
 
   const saveFileWithCustomName = async (file) => {
     Alert.prompt(
-      "New PDF File",
+      "Copy PDF File",
       "Enter a name for the PDF file:",
       [
         {
@@ -67,6 +67,42 @@ const HomeScreen = ({navigation}) => {
     );
   };
 
+  const createFileWithCustomName = async () => {
+    Alert.prompt(
+      "Create PDF file",
+      "Enter a name for the PDF file:",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Create",
+          onPress: async (customName) => {
+            if (!customName) {
+              Alert.alert(
+                "Invalid Name",
+                "The name cannot be empty.\nPlease enter a valid name.",
+                [
+                  {
+                    text: "OK",
+                    onPress: () => {
+                      createFileWithCustomName();
+                    }
+                  }
+                ]
+              );
+            } else {
+              await createPdfFile(customName);
+              await updateFilesList();
+            }
+          }
+        }
+      ],
+      "plain-text",
+    );
+  };
+
   const removeFile = (uri) => {
     deleteFile(uri).then(() => {
       updateFilesList().then();
@@ -76,13 +112,10 @@ const HomeScreen = ({navigation}) => {
   const renderItem = ({item}) => {
     return (
       <View style={styles.pdfItemContainer}>
-        <TouchableOpacity style={styles.pdfItem} disabled={isEditing}
-                          onPress={() => navigation.navigate('PdfEdit', {uri: item.uri})}>
-          <Text style={styles.pdfItemText}>
-            {item.name}
-          </Text>
-        </TouchableOpacity>
-        {isEditing ? <Button title={'remove'} onPress={() => {
+        <PdfListItem title={item.name}
+                     onPress={() => navigation.navigate('PdfEdit', {uri: item.uri})}
+                     disabled={isEditing}/>
+        {isEditing ? <Button title={'Remove'} onPress={() => {
           removeFile(item.uri);
         }
         }/> : null}
@@ -94,7 +127,12 @@ const HomeScreen = ({navigation}) => {
     if (isEditing) {
       return null;
     }
-    return <Button title="+ Add new PDF" onPress={pickPdfFile}/>
+    return (
+      <View style={styles.footerContainer}>
+        <FooterButton title={'Add PDF'} onPress={pickPdfFile}/>
+        <FooterButton title={'Create PDF'} onPress={createFileWithCustomName}/>
+      </View>
+    )
   }
 
   return (
@@ -121,19 +159,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  pdfItem: {
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-    marginHorizontal: 12,
-    marginVertical: 6,
-    backgroundColor: '#f8f8f8',
-    borderRadius: 8,
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.1,
-    flex: 1,
-  },
-  pdfItemText: {
-    fontSize: 14,
+  footerContainer: {
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 40,
   },
 });
 
