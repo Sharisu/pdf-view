@@ -13,20 +13,6 @@ const addLabelsToPdf = async (uri, pages) => {
   for (const item of pages) {
     const page = pdfDoc.getPage(item.pageNumber - 1);
 
-    if (item.labels && item.labels.length > 0) {
-      item.labels.forEach(label => {
-        const x = label.labelX * page.getWidth();
-        const y = page.getHeight() - (label.labelY * page.getHeight());
-        // I haven't made font and size adjustments, so it might not display correctly at different page sizes
-        page.drawText(label.title, {
-          x: x,
-          y: y - 20,
-          size: 24,
-          color: rgb(0.05, 0.05, 0.05),
-        });
-      });
-    }
-
     if (item.images && item.images.length > 0) {
       for (const image of item.images) {
         const newImageUri = await resizeImage(image.imageUri);
@@ -61,6 +47,19 @@ const addLabelsToPdf = async (uri, pages) => {
       }
     }
 
+    if (item.labels && item.labels.length > 0) {
+      item.labels.forEach(label => {
+        const x = label.labelX * page.getWidth();
+        const y = page.getHeight() - (label.labelY * page.getHeight());
+        // I haven't made font and size adjustments, so it might not display correctly at different page sizes
+        page.drawText(label.title, {
+          x: x,
+          y: y - 20,
+          size: 24,
+          color: rgb(0.05, 0.05, 0.05),
+        });
+      });
+    }
   }
 
   const pdfBytes = await pdfDoc.save();
